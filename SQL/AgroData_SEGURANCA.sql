@@ -10,8 +10,10 @@ CREATE TABLE IF NOT EXISTS USUARIO (
     ativo         BOOLEAN      NOT NULL DEFAULT TRUE,
     nome_completo VARCHAR(255) NULL,       -- criptografado (AES-GCM) pela aplicação
     cpf           VARCHAR(255) NULL,       -- criptografado
+    cpf_fingerprint VARCHAR(64) NULL,      -- HMAC para unicidade sem expor o CPF
     email         VARCHAR(255) NULL,       -- criptografado
-    telefone      VARCHAR(255) NULL        -- criptografado
+    telefone      VARCHAR(255) NULL,       -- criptografado
+    UNIQUE KEY uk_usuario_cpf_fingerprint (cpf_fingerprint)
 );
 
 -- Compatibilidade com bancos antigos: para cada coluna pessoal, consulta o
@@ -22,6 +24,10 @@ PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
 
 SET @c := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIO' AND COLUMN_NAME = 'cpf');
 SET @q := IF(@c = 0, 'ALTER TABLE USUARIO ADD COLUMN cpf VARCHAR(255) NULL', 'SELECT 1');
+PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @c := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIO' AND COLUMN_NAME = 'cpf_fingerprint');
+SET @q := IF(@c = 0, 'ALTER TABLE USUARIO ADD COLUMN cpf_fingerprint VARCHAR(64) NULL', 'SELECT 1');
 PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
 
 SET @c := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIO' AND COLUMN_NAME = 'email');
@@ -36,6 +42,10 @@ PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
 -- no primeiro acesso; em contas antigas, o valor inicial fica FALSE.
 SET @c := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIO' AND COLUMN_NAME = 'senha_temporaria');
 SET @q := IF(@c = 0, 'ALTER TABLE USUARIO ADD COLUMN senha_temporaria BOOLEAN NOT NULL DEFAULT FALSE', 'SELECT 1');
+PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @c := (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'USUARIO' AND INDEX_NAME = 'uk_usuario_cpf_fingerprint');
+SET @q := IF(@c = 0, 'CREATE UNIQUE INDEX uk_usuario_cpf_fingerprint ON USUARIO (cpf_fingerprint)', 'SELECT 1');
 PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
 
 -- Não insere uma conta ADMIN com credenciais fixas.

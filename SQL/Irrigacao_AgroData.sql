@@ -37,7 +37,24 @@ SET @ddl := IF(@existe = 0,
     'SELECT ''coluna id_cultura já existe''');
 PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- 4) Insere limites de referência. ON DUPLICATE KEY UPDATE atualiza os valores
+-- 4) Faixa de umidade opcional para a cultura definida como "Outro".
+SET @existe := (SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'TALHAO'
+                  AND COLUMN_NAME = 'umidade_minima_personalizada');
+SET @ddl := IF(@existe = 0,
+    'ALTER TABLE TALHAO ADD COLUMN umidade_minima_personalizada DOUBLE NULL',
+    'SELECT ''coluna umidade_minima_personalizada já existe''');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @existe := (SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'TALHAO'
+                  AND COLUMN_NAME = 'umidade_maxima_personalizada');
+SET @ddl := IF(@existe = 0,
+    'ALTER TABLE TALHAO ADD COLUMN umidade_maxima_personalizada DOUBLE NULL',
+    'SELECT ''coluna umidade_maxima_personalizada já existe''');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 5) Insere limites de referência. ON DUPLICATE KEY UPDATE atualiza os valores
 -- se a cultura já existir, evitando duplicidade pelo nome único.
 INSERT INTO CULTURA (nome, umidade_minima, umidade_maxima) VALUES
  ('Soja',             40.00, 65.00),
@@ -48,7 +65,7 @@ INSERT INTO CULTURA (nome, umidade_minima, umidade_maxima) VALUES
  ('Pastagem',         30.00, 60.00)
 ON DUPLICATE KEY UPDATE umidade_minima = VALUES(umidade_minima), umidade_maxima = VALUES(umidade_maxima);
 
--- 5) Vincula automaticamente talhões cujo nome indica a cultura plantada.
+-- 6) Vincula automaticamente talhões cujo nome indica a cultura plantada.
 -- LIKE também encontra sufixos e numeração, por exemplo "Talhão Soja 01".
 UPDATE TALHAO SET id_cultura = (SELECT id_cultura FROM CULTURA WHERE nome = 'Soja')           WHERE nome LIKE '%Soja%';
 UPDATE TALHAO SET id_cultura = (SELECT id_cultura FROM CULTURA WHERE nome = 'Milho')          WHERE nome LIKE '%Milho%';

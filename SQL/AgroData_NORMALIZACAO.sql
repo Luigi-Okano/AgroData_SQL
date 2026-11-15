@@ -15,6 +15,23 @@ USE agrodata;
 ALTER TABLE PRODUTOR MODIFY COLUMN cpf VARCHAR(14) NOT NULL;
 ALTER TABLE LOCALIZACAO MODIFY COLUMN cep VARCHAR(9) NOT NULL;
 
+-- Compatibilidade para bancos criados antes da cultura "Outro".
+SET @existe := (SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'TALHAO'
+                  AND COLUMN_NAME = 'umidade_minima_personalizada');
+SET @ddl := IF(@existe = 0,
+    'ALTER TABLE TALHAO ADD COLUMN umidade_minima_personalizada DOUBLE NULL',
+    'SELECT ''coluna umidade_minima_personalizada já existe''');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @existe := (SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'TALHAO'
+                  AND COLUMN_NAME = 'umidade_maxima_personalizada');
+SET @ddl := IF(@existe = 0,
+    'ALTER TABLE TALHAO ADD COLUMN umidade_maxima_personalizada DOUBLE NULL',
+    'SELECT ''coluna umidade_maxima_personalizada já existe''');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- DELIMITER troca temporariamente o terminador do cliente SQL: assim os pontos
 -- e vírgulas dentro de cada bloco BEGIN/END não encerram o CREATE TRIGGER.
 DELIMITER $$
@@ -149,6 +166,12 @@ BEGIN
     IF NEW.area IS NULL OR NEW.area <= 0 THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A area do talhao deve ser maior que zero.';
     END IF;
+    IF (NEW.umidade_minima_personalizada IS NULL) <> (NEW.umidade_maxima_personalizada IS NULL)
+       OR (NEW.umidade_minima_personalizada IS NOT NULL AND
+           (NEW.umidade_minima_personalizada < 0 OR NEW.umidade_maxima_personalizada > 100
+            OR NEW.umidade_minima_personalizada >= NEW.umidade_maxima_personalizada)) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A faixa de umidade personalizada e invalida.';
+    END IF;
 END$$
 
 DROP TRIGGER IF EXISTS bu_talhao_normalizar$$
@@ -165,6 +188,12 @@ BEGIN
     END IF;
     IF NEW.area IS NULL OR NEW.area <= 0 THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A area do talhao deve ser maior que zero.';
+    END IF;
+    IF (NEW.umidade_minima_personalizada IS NULL) <> (NEW.umidade_maxima_personalizada IS NULL)
+       OR (NEW.umidade_minima_personalizada IS NOT NULL AND
+           (NEW.umidade_minima_personalizada < 0 OR NEW.umidade_maxima_personalizada > 100
+            OR NEW.umidade_minima_personalizada >= NEW.umidade_maxima_personalizada)) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A faixa de umidade personalizada e invalida.';
     END IF;
 END$$
 

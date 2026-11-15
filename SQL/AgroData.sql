@@ -84,8 +84,16 @@ CREATE TABLE TALHAO (
     nome VARCHAR(50) NOT NULL,
     area DECIMAL(10,2) NOT NULL,
     tipo_solo VARCHAR(50),
+    umidade_minima_personalizada DOUBLE NULL,
+    umidade_maxima_personalizada DOUBLE NULL,
     CONSTRAINT fk_talhao_fazenda FOREIGN KEY (id_fazenda) REFERENCES FAZENDA(id_fazenda) ON DELETE CASCADE,
-    CONSTRAINT fk_talhao_cultura FOREIGN KEY (id_cultura) REFERENCES CULTURA(id_cultura)
+    CONSTRAINT fk_talhao_cultura FOREIGN KEY (id_cultura) REFERENCES CULTURA(id_cultura),
+    CONSTRAINT chk_talhao_umidade_personalizada CHECK (
+        (umidade_minima_personalizada IS NULL AND umidade_maxima_personalizada IS NULL) OR
+        (umidade_minima_personalizada IS NOT NULL AND umidade_maxima_personalizada IS NOT NULL AND
+         umidade_minima_personalizada >= 0 AND umidade_maxima_personalizada <= 100 AND
+         umidade_minima_personalizada < umidade_maxima_personalizada)
+    )
 );
 
 -- Sensor instalado em um talhão; a data de instalação pode ser desconhecida.
@@ -167,8 +175,10 @@ CREATE TABLE USUARIO (
     senha_temporaria BOOLEAN NOT NULL DEFAULT FALSE,
     nome_completo VARCHAR(255) NULL,                 -- criptografado (AES-GCM)
     cpf VARCHAR(255) NULL,                           -- criptografado
+    cpf_fingerprint VARCHAR(64) NULL,                -- HMAC para unicidade sem expor o CPF
     email VARCHAR(255) NULL,                         -- criptografado
-    telefone VARCHAR(255) NULL                       -- criptografado
+    telefone VARCHAR(255) NULL,                      -- criptografado
+    UNIQUE KEY uk_usuario_cpf_fingerprint (cpf_fingerprint)
 );
 
 -- Pequeno conjunto inicial para demonstração: produtor, endereço, fazenda,
